@@ -1,2 +1,2 @@
 .DS_Store
-datasets/*/data/*.jpg
+datasets/*/*/*
