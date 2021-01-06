@@ -18,11 +18,10 @@ def create_s2_cell(latlng):
     return cell
 
 
-def get_id_s2cell_mapping_from_raw(csv_file) -> pd.DataFrame:
+def coords_to_cells(fname: str) -> pd.DataFrame:
     logging.info('Initialize s2 cells...')
 
-    df = pd.read_csv(csv_file, usecols=['IMG_ID', 'LAT', 'LON'])
-    df['IMG_ID'] = df['IMG_ID'].apply(lambda x: x.split('/')[-1])
+    df = pd.read_csv(fname, usecols=['IMG_ID', 'LAT', 'LON'])
     df['s2cell'] = df[['LAT', 'LON']].progress_apply(create_s2_cell, axis=1)
     df = df.set_index(df['IMG_ID'])
 
@@ -51,9 +50,16 @@ def parse_args():
     parser = argparse.ArgumentParser()
     
     parser.add_argument(
-        '-c', '--config',
+        '--coords',
         type=Path,
-        default='models/baseM/config.yml'
+        required=True,
+        help='CSV file with image coordinates',
+    )
+    parser.add_argument(
+        '--output',
+        type=Path,
+        required=True,
+        help='CSV file to store cell targets',
     )
 
     return parser.parse_args()
@@ -61,68 +67,58 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
+    args.output.parent.mkdir(exist_ok=True, parents=True)
 
-    with open(args.config) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-        config = config['model_params']
+    init_logger()
 
-    for dataset_type in ['val', 'train']:
-        dataset_dir = config[f'{dataset_type}_dir']
-        label_mapping_file = Path(dataset_dir) / 'meta/meta.csv'
-        output_file = Path(dataset_dir) / 'meta/ground_truth.csv'
-        output_file.parent.mkdir(exist_ok=True, parents=True)
+    logging.info('Load CSV and initialize s2 cells')
+    df_mapping = coords_to_cells(args.coords)
 
-        logging.info('Load CSV and initialize s2 cells')
-        exit()
-        df_mapping = get_id_s2cell_mapping_from_raw(label_mapping_file)
+    for pfile in os.listdir('cells/'):
+        pname = pfile.split('.')[0]
+        logging.info(f'Processing partitioning: {pname}')
+        partitioning = pd.read_csv('cells/' + pfile, encoding='utf-8', index_col='hex_id')
 
-        partitioning_files = [Path(p) for p in config['partitionings']['files']]
-        for partitioning_file in partitioning_files:
-            column_name = partitioning_file.name.split('.')[0]
-            logging.info(f'Processing partitioning: {column_name}')
-            partitioning = pd.read_csv(
-                partitioning_file,
-                encoding='utf-8',
-                index_col='hex_id',
-            )
-
-            # create column with class indexes for respective partitioning
-            mapping = partitioning['class_label'].to_dict()
-            df_mapping[column_name] = df_mapping['s2cell'].progress_apply(
-                lambda cell: assign_class_index(cell, mapping)
-            )
-            nans = df_mapping[column_name].isna().sum()
-            logging.info(
-                f'Cannot assign a hexid for {nans} of {len(df_mapping.index)} images '
-                f'({nans / len(df_mapping.index) * 100:.2f}%)'
-            )
-
-        df_mapping = df_mapping.drop(columns=['s2cell'])  # drop unimportant information
-        
-        # Remove images that cannot be used
-        original_dataset_size = len(df_mapping.index)
-        logging.info('Remove all images that could not be assigned a cell')
-        df_mapping = df_mapping.dropna()
-        logging.info('Remove all images that did not download')
-        img_ids = os.listdir(dataset_dir + '/data')
-        df_mapping = df_mapping[df_mapping.index.isin(img_ids)]
-
-        column_names = []
-        for partitioning_file in partitioning_files:
-            column_name = partitioning_file.name.split('.')[0]
-            column_names.append(column_name)
-            df_mapping[column_name] = df_mapping[column_name].astype('int32')
-
-        df_mapping['targets'] = df_mapping[column_names].agg(list, axis='columns')
-
-        fraction = len(df_mapping.index) / original_dataset_size * 100
+        # Create column with class indexes for the respective partitioning
+        mapping = partitioning['class_label'].to_dict()
+        df_mapping[pname] = df_mapping['s2cell'].progress_apply(
+            lambda cell: assign_class_index(cell, mapping)
+        )
+        nans = df_mapping[pname].isna().sum()
         logging.info(
-            f'Final dataset size: {len(df_mapping.index)}/{original_dataset_size} ({fraction:.2f})% from original'
+            f'Cannot assign a hexid for {nans} of {len(df_mapping.index)} images '
+            f'({nans / len(df_mapping.index) * 100:.2f}%)'
         )
 
-        # store final dataset to file
-        logging.info(f'Store dataset to {output_file}')
+    # Drop unimportant information
+    df_mapping = df_mapping.drop(columns=['s2cell'])
+    
+    # Remove images that cannot be used
+    original_dataset_size = len(df_mapping.index)
+    logging.info('Remove all images that could not be assigned a cell')
+    df_mapping = df_mapping.dropna()
+    print(len(df_mapping.index) / original_dataset_size * 100)
+    logging.info('Remove all images that did not download')
+    img_ids = os.listdir(args.coords.parent.parent / 'img')
+    df_mapping = df_mapping[df_mapping.index.isin(img_ids)]
+    print(len(df_mapping.index) / original_dataset_size * 100)
 
-        df_mapping = df_mapping['targets']
-        #df_mapping.to_json(output_file, orient='index') # TODO: maybe save to csv for easier reading and uniformity 
-        df_mapping.to_csv(output_file)
+    # Join targets into list
+    pnames = []
+    for pfile in os.listdir('cells/'):
+        pname = pfile.split('.')[0]
+        pnames.append(pname)
+        df_mapping[pname] = df_mapping[pname].astype('int32')
+    df_mapping = df_mapping[pnames].agg(list, axis='columns')
+
+    fraction = len(df_mapping.index) / original_dataset_size * 100
+    logging.info(
+        f'Final dataset size: {len(df_mapping.index)}/{original_dataset_size}'
+        f'({fraction:.2f})% from original'
+    )
+
+    # Store final dataset to file
+    logging.info(f'Store dataset to {args.output}')
+    df_mapping.to_csv(args.output)
+
+    #df_mapping.to_json(output_file, orient='index') # TODO: maybe save to csv for easier reading and uniformity 

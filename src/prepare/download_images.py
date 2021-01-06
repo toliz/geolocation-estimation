@@ -65,10 +65,10 @@ def flickr_download(image_id, url, size_suffix='z', min_edge_size=None):
 
 
 class ImageDataloader:
-    def __init__(self, url_csv: Path, num_images=None):
+    def __init__(self, url: Path, num_images=None):
         logger.info('Read dataset')
 
-        self.df = pd.read_csv(url_csv, names=['image_id', 'url'], header=None, nrows=num_images)
+        self.df = pd.read_csv(url, nrows=num_images)
         self.df = self.df.dropna() # remove rows without url
         
         logger.info(f'Number of URLs: {len(self.df.index)}\n')
@@ -77,7 +77,7 @@ class ImageDataloader:
         return len(self.df.index)
 
     def __iter__(self):
-        for image_id, url in zip(self.df['image_id'].values, self.df['url'].values):
+        for image_id, url in zip(self.df['IMG_ID'].values, self.df['URL'].values):
             yield image_id.split('/')[-1], url
 
 
@@ -102,7 +102,7 @@ def parse_args():
     parser = ArgumentParser(description='Download images for training & validation sets')
     
     parser.add_argument(
-        '--url-csv',
+        '--url',
         type=Path,
         required=True,
         help='CSV with Flickr image ID and URL for downloading',
@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     logger = init_logger()
 
-    imageloader = ImageDataloader(args.url_csv, num_images=args.num_images)
+    imageloader = ImageDataloader(args.url, num_images=args.num_images)
 
     num_downloaded = 0
     for image_id, url in tqdm(imageloader, unit='img'):

@@ -13,7 +13,7 @@ import pandas as pd
 import s2sphere as s2
 
 
-''' S2 Utils '''
+""" S2 Utils """
 
 def create_s2_cell(lat, lng):
     p1 = s2.LatLng.from_degrees(lat, lng)
@@ -31,7 +31,7 @@ def s2_info(img, level):
     return [*img, hex_id, cell]
 
 
-''' Cell Utils '''
+""" Cell Utils """
 
 def init_cells(img_container_0, level, num_threads):
     logging.info('Initialize cells of level {} ...'.format(level))
@@ -95,7 +95,7 @@ def gen_subcells(img_container_0, h_0, level, t_max):
     return img_container, h
 
 
-''' Main utils '''
+""" Main utils """
 
 def write_output(args, img_container, h, folder):
     folder.mkdir(parents=True, exist_ok=True)
@@ -163,7 +163,7 @@ def parse_args():
     parser.add_argument(
         '--dataset',
         type=str,
-        default=Path('datasets/mp16/meta/meta.csv'),
+        default=Path('datasets/mp16/meta/coords.csv'),
         help='Path to dataset csv file',
     )
     parser.add_argument(
