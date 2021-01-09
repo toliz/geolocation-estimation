@@ -97,12 +97,8 @@ def gen_subcells(img_container_0, h_0, level, t_max):
 
 """ Main utils """
 
-def write_output(args, img_container, h, folder):
-    folder.mkdir(parents=True, exist_ok=True)
-
-    fname = f'cells_{args.img_min}_{args.img_max}.csv'
-
-    with folder.joinpath(fname).open(mode='w') as f:
+def write_output(fname, img_container, h):
+    with open(fname, mode='w') as f:
         logging.info(f'Write to {f.name}')
 
         cells_writer = csv.writer(f, delimiter=',')
@@ -161,16 +157,16 @@ def parse_args():
         help='Verbose output',
     )
     parser.add_argument(
+        '--pname',
+        type=str,
+        required=True,
+        help='Partitioning name',
+    )
+    parser.add_argument(
         '--dataset',
         type=str,
         default=Path('datasets/mp16/meta/coords.csv'),
         help='Path to dataset csv file',
-    )
-    parser.add_argument(
-        '--output',
-        type=Path,
-        default=Path('cells/'),
-        help='Path to output directory',
     )
     parser.add_argument(
         '--img-min',
@@ -210,7 +206,6 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    args.output.mkdir(parents=True, exist_ok=True)
     
     init_logger(args.verbose)
     
@@ -237,4 +232,4 @@ if __name__ == '__main__':
 
     # Save partitioning
     logging.info('Write output file ...')
-    write_output(args, img_container, h, args.output)
+    write_output(f'cells/{args.pname}.csv', img_container, h)

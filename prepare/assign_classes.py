@@ -23,9 +23,8 @@ def coords_to_cells(fname: str) -> pd.DataFrame:
 
     df = pd.read_csv(fname, usecols=['IMG_ID', 'LAT', 'LON'])
     df['s2cell'] = df[['LAT', 'LON']].progress_apply(create_s2_cell, axis=1)
-    df = df.set_index(df['IMG_ID'])
 
-    return df[['s2cell']]
+    return df[['IMG_ID', 's2cell']]
 
 
 def assign_class_index(cell: s2.Cell, mapping: dict) -> Union[int, None]:
@@ -97,19 +96,15 @@ if __name__ == '__main__':
     original_dataset_size = len(df_mapping.index)
     logging.info('Remove all images that could not be assigned a cell')
     df_mapping = df_mapping.dropna()
-    print(len(df_mapping.index) / original_dataset_size * 100)
     logging.info('Remove all images that did not download')
     img_ids = os.listdir(args.coords.parent.parent / 'img')
-    df_mapping = df_mapping[df_mapping.index.isin(img_ids)]
-    print(len(df_mapping.index) / original_dataset_size * 100)
+    df_mapping = df_mapping[df_mapping['IMG_ID'].isin(img_ids)]
 
-    # Join targets into list
     pnames = []
     for pfile in os.listdir('cells/'):
         pname = pfile.split('.')[0]
         pnames.append(pname)
         df_mapping[pname] = df_mapping[pname].astype('int32')
-    df_mapping = df_mapping[pnames].agg(list, axis='columns')
 
     fraction = len(df_mapping.index) / original_dataset_size * 100
     logging.info(
@@ -119,6 +114,4 @@ if __name__ == '__main__':
 
     # Store final dataset to file
     logging.info(f'Store dataset to {args.output}')
-    df_mapping.to_csv(args.output)
-
-    #df_mapping.to_json(output_file, orient='index') # TODO: maybe save to csv for easier reading and uniformity 
+    df_mapping.to_csv(args.output, index=False)
