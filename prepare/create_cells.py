@@ -105,11 +105,11 @@ def write_output(fname, img_container, h):
         # write column names
         cells_writer.writerow(
             [
-                'class_label',
-                'hex_id',
-                'imgs_per_cell',
-                'latitude_mean',
-                'longitude_mean',
+                'CLASS',
+                'HEX ID',
+                'IMAGES PER CELL',
+                'MEAN LATITUDE',
+                'MEAN LONGITUDE',
             ]
         )
 
