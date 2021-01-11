@@ -1,26 +1,30 @@
 from argparse import Namespace
+import logging
 
 import torch
-import torchvision
 import torch.nn.functional as F
-from torch.optim import SGD, lr_scheduler
+import torchvision
 
 from pytorch_lightning import LightningModule
+from utils.hierarchy import Partitioning, Hierarchy
+
 
 class MultiPartitioningClassifier(LightningModule):
-    def __init__(self, hparams: Namespace):
+    def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
 
-        self.__build_model('resnet50')
+        # Build hierarchy
+        logging.info("Building hierarchy...")
+        self.partitionings = [Partitioning(f'cells/{pfile}.csv') for pfile in hparams['partitionings']]
+        #self.hierarchy = Hierarchy(self.partitionings)
 
-    def __build_model(self, arch):
         # Build backbone network
-        backbone = torchvision.models.__dict__[arch](pretrained=True)
+        logging.info("Building backbone network...")
+        backbone = torchvision.models.__dict__[hparams['arch']](pretrained=True)
         
-        if "resnet" in arch:
-            # Usually all ResNet variants
-            nfeatures = backbone.fc.in_features
+        if "resnet" in hparams['arch']:
+            out_features = backbone.fc.in_features
             self.backbone = torch.nn.Sequential(*list(backbone.children())[:-2])
         else:
             raise NotImplementedError
@@ -29,13 +33,9 @@ class MultiPartitioningClassifier(LightningModule):
         self.backbone.flatten = torch.nn.Flatten(start_dim=1)
 
         # Build classifiers
+        logging.info("Building classifiers...")
         self.classifiers = torch.nn.ModuleList(
-            #[torch.nn.Linear(nfeatures, len(partitioning)) for partitioning in self.partitionings]
-            [
-                torch.nn.Linear(nfeatures, 3439),
-                torch.nn.Linear(nfeatures, 7561),
-                torch.nn.Linear(nfeatures, 13662),
-            ]
+            [torch.nn.Linear(out_features, len(partitioning)) for partitioning in self.partitionings]
         )
 
     def forward(self, x):
@@ -43,6 +43,19 @@ class MultiPartitioningClassifier(LightningModule):
         preds = [classifier(features) for classifier in self.classifiers]
 
         return preds
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.__dict__[self.hparams['optimizer']['name']](
+            self.parameters(),
+            **self.hparams['optimizer']['params']
+        )
+        
+        scheduler = torch.optim.lr_scheduler.__dict__[self.hparams['scheduler']['name']](
+            optimizer,
+            **self.hparams['scheduler']['params']
+        )
+
+        return {'optimizer': optimizer, 'lr_scheduler': scheduler}
 
     def training_step(self, batch, batch_idx):
         images, targets = batch
@@ -59,9 +72,3 @@ class MultiPartitioningClassifier(LightningModule):
         loss = sum(losses)
 
         return loss
-
-    def configure_optimizers(self):
-        optimizer = SGD(self.parameters(), lr=0.01
-        scheduler = lr_scheduler.MultiStepLR(optimizer, gamma=0.5, milestones=[4, 8, 12, 13, 14, 15])
-
-        return {'optimizer': optimizer, 'lr_scheduler': scheduler}
