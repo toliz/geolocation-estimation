@@ -17,7 +17,7 @@ class MultiPartitioningClassifier(LightningModule):
         # Build hierarchy
         logging.info("Building hierarchy...")
         self.partitionings = [Partitioning(f'cells/{pfile}.csv') for pfile in hparams['partitionings']]
-        #self.hierarchy = Hierarchy(self.partitionings)
+        self.hierarchy = Hierarchy(self.partitionings)
 
         # Build backbone network
         logging.info("Building backbone network...")
