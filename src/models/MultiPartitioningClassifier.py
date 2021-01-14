@@ -29,7 +29,7 @@ class MultiPartitioningClassifier(LightningModule):
             self.hierarchy = pickle.load(open(f'models/{name}/hierarchy.pkl', 'rb'))
         else:
             self.hierarchy = utils.cells.Hierarchy(self.partitionings)
-            pickle.save(self.hierarchy, open(f'models/{name}/hierarchy.pkl', 'wb'))
+            pickle.dump(self.hierarchy, open(f'models/{name}/hierarchy.pkl', 'wb'))
 
         # Build backbone network
         backbone = torchvision.models.__dict__[architecture](pretrained=True)
@@ -50,7 +50,7 @@ class MultiPartitioningClassifier(LightningModule):
 
         # Load weights
         if load_pretrained:
-            self.load('models/{name}/pretrained.ckpt')
+            self.load(f'models/{name}/pretrained.ckpt')
 
     def load(self, pretrained_path: str):
         checkpoint = torch.load(pretrained_path, map_location=lambda storage, loc: storage)
