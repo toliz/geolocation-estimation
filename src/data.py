@@ -1,6 +1,7 @@
-from typing import Tuple, Union
-
+import logging
 import pandas as pd
+from math import ceil
+from typing import Tuple, Union
 
 import torch
 import torchvision
@@ -11,18 +12,37 @@ from pytorch_lightning import LightningDataModule
 
 
 class GeoDataset(Dataset):
-    def __init__(self, img_dir: str, ground_truth: str, transform = None):
+    def __init__(
+        self,
+        dataset: str,
+        ground_truth: bool,
+        coords: bool,
+        fivecrop = False,
+        transform = None,
+    ):
         super().__init__()
 
-        gt = pd.read_csv(ground_truth)
-        pnames = gt.columns[1:].tolist()
+        self._img_dir = f'datasets/{dataset}/img/'
+        self._meta = pd.DataFrame(columns=['fnames', 'cells', 'lat', 'lng'])
+        self.fivecrop = fivecrop
 
-        self._img_dir = img_dir
-        self._gt = pd.DataFrame({
-                'fname': gt.IMG_ID,
-                'cells': gt[pnames].agg(list, axis='columns')
-        })
-        
+        if ground_truth:
+            gt = pd.read_csv(f'datasets/{dataset}/meta/gt.csv')
+            pnames = gt.columns[1:].tolist()
+
+            self._meta['fnames'] = gt['IMG_ID']
+            self._meta['cells'] = gt[pnames].agg(list, axis='columns')
+
+        if coords:
+            coords = pd.read_csv(f'datasets/{dataset}/meta/coords.csv')
+
+            if ground_truth:
+                coords = coords[coords.IMG_ID.isin(gt.IMG_ID.values)].reset_index()
+            else:
+                self._meta['fnames'] = coords['IMG_ID']
+
+            self._meta[['lat', 'lng']] = coords[['LAT', 'LON']]
+
         if transform == None:
             self._transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
@@ -33,29 +53,37 @@ class GeoDataset(Dataset):
             self._transform.transforms.extend([
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-            ])  
+            ])
 
-    def __getitem__(self, idx) -> Tuple[torch.tensor, list]:
-        fname, cells = self._gt.iloc[idx]
-        
+    def __getitem__(self, idx):
+        fname, cells, lat, lng = self._meta.iloc[idx]
+
         img = Image.open(f'{self._img_dir}/{fname}')
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        img = self._transform(img)
-        
-        return img, cells
+        img = img.convert("RGB")
+
+        if self.fivecrop: 
+            img = torchvision.transforms.Resize(256)(img)
+            crops = torchvision.transforms.FiveCrop(224)(img)
+            crops_transformed = []
+            for crop in crops:
+                crops_transformed.append(self._transform(crop))
+            img = torch.stack(crops_transformed, dim=0)
+        else:
+            img = self._transform(img)
+
+        return img, cells, lat, lng
 
     def __len__(self):
-        return len(self._gt)
+        return len(self._meta)
 
 
 class GeoDataModule(LightningDataModule):
     def __init__(
         self,
-        trainset = 'datasets/mp16',
-        valset = 'datasets/yfcc25k',
-        testsets = ['datasets/im2gps', 'datasets/im2gps3k'],
-        batch_size = 128,
+        trainset = 'mp16',
+        valset = 'yfcc25k',
+        testsets = ['im2gps', 'im2gps3k'],
+        batch_size = 26,
         num_workers = 4,
     ):
         super().__init__()
@@ -69,8 +97,9 @@ class GeoDataModule(LightningDataModule):
 
     def train_dataloader(self):
         dataset = GeoDataset(
-            img_dir=f'{self.trainset}/img',
-            ground_truth=f'{self.trainset}/meta/gt.csv',
+            dataset=self.trainset,
+            ground_truth=True,
+            coords=False,
             transform=torchvision.transforms.Compose([
                 torchvision.transforms.RandomHorizontalFlip(),
                 torchvision.transforms.RandomResizedCrop(224, scale=(0.66, 1.0)),
@@ -89,8 +118,9 @@ class GeoDataModule(LightningDataModule):
 
     def val_dataloader(self):
         dataset = GeoDataset(
-            img_dir=f'{self.valset}/img',
-            ground_truth=f'{self.valset}/meta/gt.csv',
+            dataset=self.valset,
+            ground_truth=True,
+            coords=True,
             transform=torchvision.transforms.Compose([
                 torchvision.transforms.Resize(256),
                 torchvision.transforms.CenterCrop(224),
@@ -111,14 +141,16 @@ class GeoDataModule(LightningDataModule):
 
         for testset in self.testsets:
             dataset = GeoDataset(
-                img_dir=f'{testset}/img',
-                ground_truth=f'{testset}/meta/gt.csv',
+                dataset=testset,
+                ground_truth=False,
+                coords=True,
+                fivecrop=True,
             )
 
             dataloaders.append(
                 DataLoader(
                     dataset,
-                    batch_size=self.batch_size,
+                    batch_size=ceil(self.batch_size/5),
                     num_workers=self.num_workers,
                 )
             )
