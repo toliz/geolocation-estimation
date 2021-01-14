@@ -8,13 +8,13 @@ from typing import Tuple, List
 
 
 def _hex2bin(hexval):
-        thelen = len(hexval) * 4
-        binval = bin(int(hexval, 16))[2:]
-        while (len(binval)) < thelen:
-            binval = "0" + binval
+    thelen = len(hexval) * 4
+    binval = bin(int(hexval, 16))[2:]
+    while (len(binval)) < thelen:
+        binval = "0" + binval
 
-        binval = binval.rstrip("0")
-        return binval
+    binval = binval.rstrip("0")
+    return binval
 
 
 def _create_cell(lat, lng, level):
