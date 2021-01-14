@@ -1,30 +1,41 @@
-from argparse import Namespace
-import logging
+import utils
+import pickle
+from pathlib import Path
+from collections import OrderedDict
 
 import torch
 import torch.nn.functional as F
 import torchvision
-
 from pytorch_lightning import LightningModule
-from utils.hierarchy import Partitioning, Hierarchy
 
 
 class MultiPartitioningClassifier(LightningModule):
-    def __init__(self, hparams):
+    def __init__(
+        self,
+        name = 'baseM',
+        architecture = 'resnet50',
+        cell_dir = 'cells/',
+        load_hierarchy = True,
+        load_pretrained = False,
+    ):
         super().__init__()
-        self.hparams = hparams
+
+        if type(cell_dir) is not Path:
+            cell_dir = Path(cell_dir)
 
         # Build hierarchy
-        logging.info("Building hierarchy...")
-        self.partitionings = [Partitioning(f'cells/{pfile}.csv') for pfile in hparams['partitionings']]
-        self.hierarchy = Hierarchy(self.partitionings)
+        self.partitionings = [utils.cells.Partitioning(pfile) for pfile in cell_dir.iterdir()]
+        if load_hierarchy:
+            self.hierarchy = pickle.load(open(f'models/{name}/hierarchy.pkl', 'rb'))
+        else:
+            self.hierarchy = utils.cells.Hierarchy(self.partitionings)
+            pickle.save(self.hierarchy, open(f'models/{name}/hierarchy.pkl', 'wb'))
 
         # Build backbone network
-        logging.info("Building backbone network...")
-        backbone = torchvision.models.__dict__[hparams['arch']](pretrained=True)
+        backbone = torchvision.models.__dict__[architecture](pretrained=True)
         
-        if "resnet" in hparams['arch']:
-            out_features = backbone.fc.in_features
+        if 'resnet' in architecture:
+            nfeatures = backbone.fc.in_features
             self.backbone = torch.nn.Sequential(*list(backbone.children())[:-2])
         else:
             raise NotImplementedError
@@ -33,10 +44,29 @@ class MultiPartitioningClassifier(LightningModule):
         self.backbone.flatten = torch.nn.Flatten(start_dim=1)
 
         # Build classifiers
-        logging.info("Building classifiers...")
         self.classifiers = torch.nn.ModuleList(
-            [torch.nn.Linear(out_features, len(partitioning)) for partitioning in self.partitionings]
+            [torch.nn.Linear(nfeatures, len(partitioning)) for partitioning in self.partitionings]
         )
+
+        # Load weights
+        if load_pretrained:
+            self.load('models/{name}/pretrained.ckpt')
+
+    def load(self, pretrained_path: str):
+        checkpoint = torch.load(pretrained_path, map_location=lambda storage, loc: storage)
+
+        state_dict_features = OrderedDict()
+        state_dict_classifier = OrderedDict()
+        for k, w in checkpoint['state_dict'].items():
+            if k.startswith('model'):
+                state_dict_features[k.replace('model.', '')] = w
+            elif k.startswith('classifier'):
+                state_dict_classifier[k.replace('classifier.', '')] = w
+            else:
+                logging.warning(f'Unexpected prefix in state_dict: {k}')
+        self.backbone.load_state_dict(state_dict_features, strict=True)
+        self.classifiers.load_state_dict(state_dict_classifier, strict=True)
+
 
     def forward(self, x):
         features = self.backbone(x)
