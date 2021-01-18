@@ -123,6 +123,11 @@ class MultiPartitioningClassifier(LightningModule):
         losses = [F.cross_entropy(pred, target) for pred, target in zip(preds, targets)]
         loss = sum(losses)
 
+        # Logging
+        self.log(f'train_loss', loss, logger=True)
+        for p, l in zip(self.partitionings, losses):
+            self.log(f'train_loss\{p.name}', l, logger=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -135,6 +140,11 @@ class MultiPartitioningClassifier(LightningModule):
         # Loss
         losses = [F.cross_entropy(pred, target) for pred, target in zip(preds, targets)]
         loss = sum(losses)
+
+        # Logging
+        self.log(f'val_loss', loss, logger=True)
+        for p, l in zip(self.partitionings, losses):
+            self.log(f'val_loss\{p.name}', l, logger=True)
 
         return loss
 
