@@ -11,18 +11,18 @@ from pytorch_lightning import Trainer
 
 def main(args):
     # Init model & data module
-    model = MultiPartitioningClassifier(load_pretrained=True)
+    model = MultiPartitioningClassifier(name=args.model, load_pretrained=True)
     datamodule = GeoDataModule()
 
     # Init Trainer
-    trainer = Trainer(args)
+    trainer = Trainer(gpus=args.gpus, precision=args.precision)
     
     # Train & validate
     print()
     trainer.test(model, datamodule=datamodule, verbose=False)
     print()
 
-    results = pickle.load(open(f'{args.model_dir}/test_report.pkl', 'rb'))
+    results = pickle.load(open(f'models/{args.model}/test_report.pkl', 'rb'))
 
     # Formatting results
     for result, name in zip(results, datamodule.testsets):
