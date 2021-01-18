@@ -1,49 +1,47 @@
 from argparse import ArgumentParser
 from pathlib import Path
-import yaml
-import logging
 
-from models import MultiPartitioningClassifier
 from data import GeoDataModule
+from models import MultiPartitioningClassifier
 from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import TensorBoardLogger
 
 
-def parse_args():
-    args = ArgumentParser()
-
-    args.add_argument(
-        "-m", "--model-dir",
-        type=Path,
-        default=Path("models/baseM"),
-        help="Path to model folder",
-    )
-    
-    return args.parse_args()
-
-
-if __name__ == "__main__":
-    args = parse_args()
-
-    logging.basicConfig(
-        format='%(asctime)s [%(levelname)s]: %(message)s',
-        datefmt='%d-%m-%Y %H:%M:%S',
-        level=logging.INFO,
-    )
-
-    with open(args.model_dir / 'config.yml') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-        model_params = config["model_params"]
-        trainer_params = config["trainer_params"]
-
+def main(args):
     # Init model & data module
-    model = MultiPartitioningClassifier(model_params)
+    model = MultiPartitioningClassifier(name=args.model, cell_dir='cells-mine/')
     datamodule = GeoDataModule()
 
     # Init Trainer
-    trainer = Trainer(
-        **trainer_params,
-        progress_bar_refresh_rate=1,
-    )
+    tb_logger = TensorBoardLogger(f'models/{args.model}', name='tb_logs')
+    trainer = Trainer(gpus=args.gpus, precision=args.precision, logger=tb_logger)
 
     # Train & validate
     trainer.fit(model, datamodule)
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser()
+
+    parser.add_argument(
+        '-m', '--model',
+        type=str,
+        default='baseM',
+        help='Model name. Your model will be placed in <project-folder>/models/<model>',
+    )
+    parser.add_argument(
+        '--gpus',
+        type=int,
+        default=1,
+        help='Number of gpus to train on (int) or which GPUs to train on (list or str) per node',
+    )
+    parser.add_argument(
+        '--precision',
+        type=int,
+        default=16,
+        help='32 for full precision or 16 for half precision. Available for CPUs, GPUs or TPUs',
+    )
+
+    args = parser.parse_args()
+
+    main(args)
