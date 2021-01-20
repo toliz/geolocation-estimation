@@ -106,7 +106,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logging.basicConfig(
-        format='%(asctime)s [%(levelname)s]: %(message)s',
+        format='\n%(asctime)s [%(levelname)s]: %(message)s',
         datefmt='%d-%m-%Y %H:%M:%S',
         level=logging.INFO,
     )

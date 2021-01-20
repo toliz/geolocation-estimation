@@ -112,12 +112,14 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--dataset',
+        type=str,
         default='mp16',
         choices=['mp16', 'yfcc25k', 'im2gps3k', 'im2gps'],
     )
     parser.add_argument(
         '--cell-dir',
         type=str,
+        default='cells/',
         help='Partitioning dir.'
     )
     args = parser.parse_args()
