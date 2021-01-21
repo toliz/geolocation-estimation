@@ -87,20 +87,23 @@ def main(args):
             return float('nan')
 
     df['TAGS'] = df['IMG_ID'].progress_apply(tags)
+    df[['IMG_ID', 'TAGS']].to_csv(f'datasets/{args.dataset}/meta/autotags.csv')
 
-    for pfile in Path(args.cell_dir).children:
-        pname = pfile.stem
-        logging.info(f'Grouping by {pname} partition...')
+    if args.dataset == 'mp16':
+        # Update cell files
+        for pfile in Path(args.cell_dir).iterdir():
+            pname = pfile.stem
+            logging.info(f'Grouping by {pname} partition...')
 
-        # Group by cell
-        ptags = df[[pname, 'TAGS']].dropna()
-        ptags = df.groupby(pname).agg(sum)
-        ptags.tags = df.tags.apply(lambda x: list(set(x)))
+            # Group tags by cell
+            ptags = df[[pname, 'TAGS']].dropna()
+            ptags = ptags.groupby(pname).agg(sum)
+            ptags['TAGS'] = ptags['TAGS'].apply(lambda x: list(set(x)))
 
-        # Append cell files
-        cells = pd.read_csv(pfile, index_col='CLASS')
-        cells['TAGS'] = ptags
-        cells.to_csv(pfile, float_format='%.6f')
+            # Add tags to current cell csv
+            cells = pd.read_csv(pfile, index_col='CLASS')
+            cells['TAGS'] = ptags
+            cells.to_csv(pfile, float_format='%.6f')
 
 
 if __name__ == '__main__':
