@@ -87,7 +87,7 @@ def main(args):
             return float('nan')
 
     df['TAGS'] = df['IMG_ID'].progress_apply(tags)
-    df[['IMG_ID', 'TAGS']].to_csv(f'datasets/{args.dataset}/meta/autotags.csv')
+    df[['IMG_ID', 'TAGS']].to_csv(f'datasets/{args.dataset}/meta/autotags.csv', index=False)
 
     if args.dataset == 'mp16':
         # Update cell files
