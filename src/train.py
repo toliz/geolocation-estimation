@@ -14,7 +14,12 @@ def main(args):
 
     # Init Trainer
     tb_logger = TensorBoardLogger(f'models/{args.model}', name='tb_logs')
-    trainer = Trainer(gpus=args.gpus, precision=args.precision, logger=tb_logger)
+    trainer = Trainer(
+        gpus=args.gpus,
+        precision=args.precision,
+        max_epochs=args.epochs,
+        logger=tb_logger,
+    )
 
     # Train & validate
     trainer.fit(model, datamodule)
@@ -40,6 +45,12 @@ if __name__ == '__main__':
         type=int,
         default=16,
         help='32 for full precision or 16 for half precision. Available for CPUs, GPUs or TPUs',
+    )
+    parser.add_argument(
+        '--epochs',
+        type=int,
+        default=15,
+        help='Number of epochs to train',
     )
 
     args = parser.parse_args()
