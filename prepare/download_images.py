@@ -81,24 +81,18 @@ class ImageDataloader:
             yield image_id.split('/')[-1], url
 
 
-def init_logger():
-    logger = logging.getLogger('ImageDownloader')
-    logger.setLevel(logging.INFO)
-    
-    fh = logging.FileHandler(str(args.output / 'writer.log'))
-    fh.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    logger.addHandler(fh)
-    logger.addHandler(ch)
+def main(args):
+    args.output.mkdir(parents=True, exist_ok=True)
+    imageloader = ImageDataloader(args.url, num_images=args.num_images)
 
-    return logger
+    num_downloaded = 0
+    for image_id, url in tqdm(imageloader, unit='img'):
+        num_downloaded += flickr_download(image_id, url, size_suffix='z', min_edge_size=320)
+
+    logger.info(f'\nSucesfully downloaded {num_downloaded}/{len(imageloader)} images')
 
 
-def parse_args():
+if __name__ == '__main__':
     parser = ArgumentParser(description='Download images for training & validation sets')
     
     parser.add_argument(
@@ -117,21 +111,22 @@ def parse_args():
         '--num-images',
         type=int,
         default=None,
-        help='Number of images to download')
+        help='Number of images to download'
+    )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    logger = logging.getLogger('ImageDownloader')
+    logger.setLevel(logging.INFO)
+    
+    fh = logging.FileHandler(str(args.output / 'writer.log'))
+    fh.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('\n%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.addHandler(ch)
 
-
-if __name__ == '__main__':
-    args = parse_args()
-    args.output.mkdir(parents=True, exist_ok=True)
-
-    logger = init_logger()
-
-    imageloader = ImageDataloader(args.url, num_images=args.num_images)
-
-    num_downloaded = 0
-    for image_id, url in tqdm(imageloader, unit='img'):
-        num_downloaded += flickr_download(image_id, url, size_suffix='z', min_edge_size=320)
-
-    logger.info(f'\nSucesfully downloaded {num_downloaded}/{len(imageloader)} images')
+    main(args)

@@ -135,19 +135,35 @@ def write_output(fname, img_container, h):
                 [cell2class[k], k, v, coords_sum[k][0] / v, coords_sum[k][1] / v]
             )
 
-def init_logger(verbose):
-    if verbose:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
 
-    logging.basicConfig(
-        format='%(asctime)s [%(levelname)s]: %(message)s',
-        datefmt='%d-%m-%Y %H:%M:%S',
-        level=level,
-    )
+def main(args):
+    # Read dataset
+    df = pd.read_csv(args.dataset, usecols=['IMG_ID', 'LAT', 'LON'])
+    img_container = list(df.itertuples(index=False, name=None))
+    num_images = len(img_container)
+    logging.info('{} images available.\n'.format(num_images))
+    level = args.lvl_min
 
-def parse_args():
+    # Initialize cells
+    img_container, h = init_cells(img_container, level, args.threads)    
+    img_container, h = delete_cells(img_container, h, args.img_min)
+
+    # Recursively split cells with > t_max images
+    logging.info('Create subcells ...')
+    while any(v > args.img_max for v in h.values()) and level < args.lvl_max:
+        level = level + 1
+        img_container, h = gen_subcells(img_container, h, level, args.img_max)
+
+    # Remove cells with < t_min images
+    img_container, h = delete_cells(img_container, h, args.img_min)
+    logging.info(f'Final number of images: {len(img_container)}')
+
+    # Save partitioning
+    logging.info('Write output file ...')
+    write_output(f'cells/{args.pname}.csv', img_container, h)
+
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create Cell Partitioning')
     
     parser.add_argument(
@@ -201,35 +217,17 @@ def parse_args():
         help='Number of threads to download and process images',
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
 
+    if args.verbose:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
 
-if __name__ == '__main__':
-    args = parse_args()
-    
-    init_logger(args.verbose)
-    
-    # Read dataset
-    df = pd.read_csv(args.dataset, usecols=['IMG_ID', 'LAT', 'LON'])
-    img_container = list(df.itertuples(index=False, name=None))
-    num_images = len(img_container)
-    logging.info('{} images available.\n'.format(num_images))
-    level = args.lvl_min
+    logging.basicConfig(
+        format='\n%(asctime)s [%(levelname)s]: %(message)s',
+        datefmt='%d-%m-%Y %H:%M:%S',
+        level=level,
+    )
 
-    # Initialize cells
-    img_container, h = init_cells(img_container, level, args.threads)    
-    img_container, h = delete_cells(img_container, h, args.img_min)
-
-    # Recursively split cells with > t_max images
-    logging.info('Create subcells ...')
-    while any(v > args.img_max for v in h.values()) and level < args.lvl_max:
-        level = level + 1
-        img_container, h = gen_subcells(img_container, h, level, args.img_max)
-
-    # Remove cells with < t_min images
-    img_container, h = delete_cells(img_container, h, args.img_min)
-    logging.info(f'Final number of images: {len(img_container)}')
-
-    # Save partitioning
-    logging.info('Write output file ...')
-    write_output(f'cells/{args.pname}.csv', img_container, h)
+    main(args)

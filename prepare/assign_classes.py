@@ -37,38 +37,8 @@ def assign_class_index(cell: s2.Cell, mapping: dict) -> Union[int, None]:
     return None  # valid return since not all regions are covered
 
 
-def init_logger():
-    logging.basicConfig(
-        format='%(asctime)s [%(levelname)s]: %(message)s',
-        datefmt='%d-%m-%Y %H:%M:%S',
-        level=logging.INFO,
-    )
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    
-    parser.add_argument(
-        '--coords',
-        type=Path,
-        required=True,
-        help='CSV file with image coordinates',
-    )
-    parser.add_argument(
-        '--output',
-        type=Path,
-        required=True,
-        help='CSV file to store cell targets',
-    )
-
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    args = parse_args()
+def main(args):
     args.output.parent.mkdir(exist_ok=True, parents=True)
-
-    init_logger()
 
     logging.info('Load CSV and initialize s2 cells')
     df_mapping = coords_to_cells(args.coords)
@@ -115,3 +85,30 @@ if __name__ == '__main__':
     # Store final dataset to file
     logging.info(f'Store dataset to {args.output}')
     df_mapping.to_csv(args.output, index=False)
+    
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument(
+        '--coords',
+        type=Path,
+        required=True,
+        help='CSV file with image coordinates',
+    )
+    parser.add_argument(
+        '--output',
+        type=Path,
+        required=True,
+        help='CSV file to store cell targets',
+    )
+
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        format='\n%(asctime)s [%(levelname)s]: %(message)s',
+        datefmt='%d-%m-%Y %H:%M:%S',
+        level=logging.INFO,
+    )
+
+    main(args)
