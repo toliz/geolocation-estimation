@@ -83,7 +83,7 @@ class GeoDataModule(LightningDataModule):
         trainset = 'mp16',
         valset = 'yfcc25k',
         testsets = ['im2gps', 'im2gps3k'],
-        batch_size = 26,
+        batch_size = 128,
         num_workers = 4,
     ):
         super().__init__()
