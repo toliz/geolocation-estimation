@@ -11,9 +11,9 @@ from pytorch_lightning import Trainer
 
 def main(args):
     # Init model & data module
-    model = MultiPartitioningClassifier(name=args.model, load_pretrained=True)
+    model = MultiPartitioningClassifier(name=args.model, reset_classifier=False)
     datamodule = GeoDataModule()
-
+    
     # Init Trainer
     trainer = Trainer(gpus=args.gpus, precision=args.precision)
     

@@ -16,13 +16,13 @@ class MultiPartitioningClassifier(LightningModule):
         architecture = 'resnet50',
         cell_dir = 'cells/',
         load_hierarchy = True,
-        load_pretrained = False,
+        load_pretrained = True,
+        reset_classifier = True,
     ):
         super().__init__()
+        
         self.name = name
-
-        if type(cell_dir) is not Path:
-            cell_dir = Path(cell_dir)
+        cell_dir = Path(cell_dir)
 
         # Build hierarchy
         self.partitionings = [utils.cells.Partitioning(pfile) for pfile in cell_dir.iterdir()]
@@ -53,7 +53,15 @@ class MultiPartitioningClassifier(LightningModule):
 
         # Load weights
         if load_pretrained:
-            self.load_state_dict(torch.load('models/baseM/weights.pt'))
+            checkpoint = torch.load(f'models/{name}/weights.pt')
+            self.backbone.load_state_dict(checkpoint['backbone'])
+
+            if not reset_classifier:
+                self.classifiers.load_state_dict(checkpoint['classifiers'])
+            else:
+                # Lock backbone
+                for parameter in self.backbone.parameters():
+                    parameter.requires_grad = False
 
     def forward(self, images):
         assert isinstance(images, torch.Tensor)
