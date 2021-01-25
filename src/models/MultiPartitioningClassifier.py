@@ -177,10 +177,10 @@ class MultiPartitioningClassifier(LightningModule):
         if not isinstance(outputs[0], list):
             outputs = [outputs]
 
-        pnames = [partitioning.name for partitioning in self.partitionings]
         for output in outputs:
             accuracies = {}
 
+            pnames = output[0].keys()
             for pname in pnames:
                 GCD = torch.cat([o[pname] for o in output], dim=0)
                 accuracies[pname] = utils.report.acc(GCD)
