@@ -96,7 +96,7 @@ class MultiPartitioningClassifier(LightningModule):
             preds[i] = torch.argmax(prob, dim=1)
             preds[i] = [self.partitionings[i].get_coords(c.item()) for c in preds[i]]
 
-        hierarchy_preds = torch.argmax(prob, dim=1)
+        hierarchy_preds = torch.argmax(hierarchy_preds, dim=1)
         hierarchy_preds = [self.partitionings[i].get_coords(c.item()) for c in hierarchy_preds]
         
         preds = dict(zip([p.name for p in self.partitionings], preds))
