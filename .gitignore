@@ -5,3 +5,6 @@
 datasets/*/**
 models/*/**
 TODO
+.ipynb_checkpoints
+lightning_logs
+tmp*
