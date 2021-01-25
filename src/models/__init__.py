@@ -1,1 +1,2 @@
-from .MultiPartitioningClassifier import MultiPartitioningClassifier
+from .PlaceNet import PlaceNet
+from .TagNet import TagNet

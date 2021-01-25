@@ -2,14 +2,14 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from data import GeoDataModule
-from models import MultiPartitioningClassifier
+from models import PlaceNet
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 
 
 def main(args):
     # Init model & data module
-    model = MultiPartitioningClassifier(name=args.model, cell_dir='cells-mine/')
+    model = PlaceNet(name=args.model, cell_dir='cells-mine/')
     datamodule = GeoDataModule()
 
     # Init Trainer

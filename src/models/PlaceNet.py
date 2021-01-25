@@ -9,7 +9,7 @@ import torchvision
 from pytorch_lightning import LightningModule
 
 
-class MultiPartitioningClassifier(LightningModule):
+class PlaceNet(LightningModule):
     def __init__(
         self,
         name = 'baseM',
